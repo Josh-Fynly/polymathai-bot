@@ -1,5 +1,7 @@
- import baileysPkg from "@whiskeysockets/baileys";
-const { default: makeWASocket, useMultiFileAuthState, downloadMediaMessage } = baileysPkg;
+import makeWASocket, {
+  useMultiFileAuthState,
+  downloadMediaMessage
+} from "baileys";
 
 import express from "express";
 import bodyParser from "body-parser";
@@ -11,47 +13,65 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Health check route (VERY IMPORTANT for Railway)
-app.get("/", (req, res) => {
-  res.send("PolymathAI is running 🚀");
-});
-
-// 🔹 Start WhatsApp Bot
+// 🔥 Start WhatsApp Bot
 async function startBot() {
-  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
-  const sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: true,
-  });
-
-  sock.ev.on("creds.update", saveCreds);
-
-  sock.ev.on("messages.upsert", async ({ messages }) => {
-    const msg = messages[0];
-    if (!msg.message) return;
-
-    const sender = msg.key.remoteJid;
-
-    let audioBuffer = null;
-
-    // 🎤 Handle voice notes
-    if (msg.message.audioMessage) {
-      audioBuffer = await downloadMediaMessage(msg, "buffer");
-    }
-
-    await handleIncoming({
-      message: msg.message,
-      audioBuffer,
-      sock,
-      sender,
+    const sock = makeWASocket({
+      auth: state,
+      printQRInTerminal: true,
     });
-  });
 
-  console.log("✅ WhatsApp bot started");
+    sock.ev.on("creds.update", saveCreds);
+
+    sock.ev.on("connection.update", (update) => {
+      const { connection, lastDisconnect } = update;
+
+      if (connection === "close") {
+        console.log(" Connection closed. Reconnecting...");
+        startBot();
+      } else if (connection === "open") {
+        console.log(" WhatsApp connected");
+      }
+    });
+
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+      try {
+        const msg = messages[0];
+        if (!msg.message) return;
+
+        const sender = msg.key.remoteJid;
+
+        let audioBuffer = null;
+
+        if (msg.message.audioMessage) {
+          audioBuffer = await downloadMediaMessage(
+            msg,
+            "buffer",
+            {},
+            { logger: console }
+          );
+        }
+
+        await handleIncoming({
+          message: msg.message,
+          audioBuffer,
+          sock,
+          sender,
+        });
+
+      } catch (err) {
+        console.error(" Message handling error:", err);
+      }
+    });
+
+  } catch (err) {
+    console.error(" Bot startup error:", err);
+  }
 }
 
-// Start server + bot
+// 🌐 Start server
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   await startBot();
