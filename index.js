@@ -1,5 +1,6 @@
 import makeWASocket, {
   useMultiFileAuthState,
+  fetchLatestBaileysVersion,
   downloadMediaMessage
 } from "baileys";
 
@@ -13,66 +14,64 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
-// 🔥 Start WhatsApp Bot
+// 🔹 Start WhatsApp Bot
 async function startBot() {
-  try {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
-    const sock = makeWASocket({
-      auth: state,
-      printQRInTerminal: true,
-    });
+  const { version } = await fetchLatestBaileysVersion();
 
-    sock.ev.on("creds.update", saveCreds);
+  const sock = makeWASocket({
+    version,
+    auth: state,
+  });
 
-    sock.ev.on("connection.update", (update) => {
-      const { connection, lastDisconnect } = update;
+  // Save session
+  sock.ev.on("creds.update", saveCreds);
 
-      if (connection === "close") {
-        console.log(" Connection closed. Reconnecting...");
-        startBot();
-      } else if (connection === "open") {
-        console.log(" WhatsApp connected");
-      }
-    });
+  // 🔥 PAIRING CODE LOGIN (Railway compatible)
+  if (!sock.authState.creds.registered) {
+    const phoneNumber = "2348126480871"; // ⚠️ REPLACE WITH YOUR NUMBER
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-      try {
-        const msg = messages[0];
-        if (!msg.message) return;
-
-        const sender = msg.key.remoteJid;
-
-        let audioBuffer = null;
-
-        if (msg.message.audioMessage) {
-          audioBuffer = await downloadMediaMessage(
-            msg,
-            "buffer",
-            {},
-            { logger: console }
-          );
-        }
-
-        await handleIncoming({
-          message: msg.message,
-          audioBuffer,
-          sock,
-          sender,
-        });
-
-      } catch (err) {
-        console.error(" Message handling error:", err);
-      }
-    });
-
-  } catch (err) {
-    console.error(" Bot startup error:", err);
+    const code = await sock.requestPairingCode(phoneNumber);
+    console.log("🔑 PAIRING CODE:", code);
   }
+
+  // 🔹 Listen for messages
+  sock.ev.on("messages.upsert", async ({ messages }) => {
+    try {
+      const msg = messages[0];
+      if (!msg.message) return;
+
+      const sender = msg.key.remoteJid;
+
+      let audioBuffer = null;
+
+      // 🎤 Handle voice notes
+      if (msg.message.audioMessage) {
+        audioBuffer = await downloadMediaMessage(msg, "buffer");
+      }
+
+      await handleIncoming({
+        message: msg.message,
+        audioBuffer,
+        sock,
+        sender,
+      });
+
+    } catch (err) {
+      console.error("Message handling error:", err);
+    }
+  });
+
+  console.log("🚀 PolymathAI bot started...");
 }
 
-// 🌐 Start server
+// 🔹 Start Express server
+app.get("/", (req, res) => {
+  res.send("PolymathAI is running");
+});
+
 app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Server running on port ${PORT}`);
   await startBot();
 });
