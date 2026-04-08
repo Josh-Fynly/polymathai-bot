@@ -14,7 +14,6 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
 
-// 🔹 Start WhatsApp Bot
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
 
@@ -25,18 +24,31 @@ async function startBot() {
     auth: state,
   });
 
-  // Save session
+  // 🔐 Save session
   sock.ev.on("creds.update", saveCreds);
 
-  // 🔥 PAIRING CODE LOGIN (Railway compatible)
-  if (!sock.authState.creds.registered) {
-    const phoneNumber = "2348126480871"; // ⚠️ REPLACE WITH YOUR NUMBER
+  // 🔍 Connection monitoring (VERY IMPORTANT)
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect } = update;
+
+    if (connection === "close") {
+      console.log("❌ Connection closed:", lastDisconnect?.error);
+    }
+
+    if (connection === "open") {
+      console.log("✅ WhatsApp connected successfully");
+    }
+  });
+
+  // 🔥 PAIRING (ONLY WHEN NOT REGISTERED)
+  if (!state.creds.registered) {
+    const phoneNumber = "2348126480871"; // 🔴 PUT YOUR NUMBER HERE
 
     const code = await sock.requestPairingCode(phoneNumber);
     console.log("🔑 PAIRING CODE:", code);
   }
 
-  // 🔹 Listen for messages
+  // 📩 Message listener
   sock.ev.on("messages.upsert", async ({ messages }) => {
     try {
       const msg = messages[0];
@@ -46,7 +58,7 @@ async function startBot() {
 
       let audioBuffer = null;
 
-      // 🎤 Handle voice notes
+      // 🎤 Voice note handling
       if (msg.message.audioMessage) {
         audioBuffer = await downloadMediaMessage(msg, "buffer");
       }
@@ -59,14 +71,14 @@ async function startBot() {
       });
 
     } catch (err) {
-      console.error("Message handling error:", err);
+      console.error("❌ Message handling error:", err);
     }
   });
 
   console.log("🚀 PolymathAI bot started...");
 }
 
-// 🔹 Start Express server
+// 🌐 Health route (important for Railway)
 app.get("/", (req, res) => {
   res.send("PolymathAI is running");
 });
