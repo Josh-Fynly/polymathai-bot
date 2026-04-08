@@ -7,77 +7,71 @@ const {
 
 import express from "express";
 
+console.log("🟡 FILE LOADED");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 async function startBot() {
+  console.log("🟡 startBot() called");
+
   try {
     const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+    console.log("🟢 Auth state loaded");
 
     const { version } = await fetchLatestBaileysVersion();
+    console.log("🟢 Baileys version fetched");
 
     const sock = makeWASocket({
       version,
       auth: state,
     });
 
-    // Save session
     sock.ev.on("creds.update", saveCreds);
 
-    // 🔍 Connection monitoring
-    sock.ev.on("connection.update", async (update) => {
-      const { connection, lastDisconnect } = update;
+    sock.ev.on("connection.update", (update) => {
+      console.log("🔄 Connection update:", update);
 
-      if (connection === "close") {
-        console.log("❌ Connection closed:");
-        console.log(lastDisconnect?.error);
-      }
+      const { connection } = update;
 
       if (connection === "open") {
-        console.log("✅ WhatsApp connected successfully");
+        console.log("✅ CONNECTED");
+      }
+
+      if (connection === "close") {
+        console.log("❌ CONNECTION CLOSED");
       }
     });
 
-    // 🔑 Pairing (only once)
     if (!state.creds.registered) {
-      const phoneNumber = "2348126480871"; // your number
+      console.log("🟡 Requesting pairing code...");
 
-      try {
-        const code = await sock.requestPairingCode(phoneNumber);
-        console.log("🔑 PAIRING CODE:", code);
-      } catch (err) {
-        console.error("❌ Pairing error:", err);
-      }
+      const code = await sock.requestPairingCode("2348126480871");
+      console.log("🔑 PAIRING CODE:", code);
     }
 
-    // 📩 SIMPLE MESSAGE TEST (no modules yet)
     sock.ev.on("messages.upsert", async ({ messages }) => {
-      try {
-        const msg = messages[0];
-        if (!msg.message) return;
+      console.log("📩 MESSAGE EVENT TRIGGERED");
 
-        const sender = msg.key.remoteJid;
+      const msg = messages[0];
+      if (!msg.message) return;
 
-        await sock.sendMessage(sender, {
-          text: "🤖 PolymathAI is live (test mode)"
-        });
+      const sender = msg.key.remoteJid;
 
-      } catch (err) {
-        console.error("❌ Message handling error:", err);
-      }
+      await sock.sendMessage(sender, {
+        text: "Bot is alive ✅"
+      });
     });
 
-    console.log("🚀 Bot initialized");
-
   } catch (err) {
-    console.error("🔥 FATAL START ERROR:");
+    console.error("🔥 FATAL ERROR:");
     console.error(err);
   }
 }
 
-// 🌐 Health check (Railway requirement)
 app.get("/", (req, res) => {
-  res.send("PolymathAI running");
+  console.log("🌐 Health route hit");
+  res.send("Running");
 });
 
 app.listen(PORT, () => {
