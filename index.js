@@ -1,9 +1,7 @@
-import pkg from "baileys";
-const {
-  default: makeWASocket,
+import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion
-} = pkg;
+} from "@whispr/baileys";
 
 import express from "express";
 
