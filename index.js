@@ -1,36 +1,54 @@
 import makeWASocket, {
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion
+  fetchLatestBaileysVersion,
+  makeInMemoryStore
 } from "@whispr/baileys";
 
 import express from "express";
+import fs from "fs";
 
 console.log("🟡 FILE LOADED");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const AUTH_FILE = "./auth.json";
+
+async function loadAuth() {
+  if (fs.existsSync(AUTH_FILE)) {
+    return JSON.parse(fs.readFileSync(AUTH_FILE));
+  }
+  return {};
+}
+
+async function saveAuth(state) {
+  fs.writeFileSync(AUTH_FILE, JSON.stringify(state, null, 2));
+}
+
 async function startBot() {
   console.log("🟡 startBot() called");
 
   try {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-    console.log("🟢 Auth state loaded");
-
     const { version } = await fetchLatestBaileysVersion();
     console.log("🟢 Baileys version fetched");
 
+    const authState = await loadAuth();
+
     const sock = makeWASocket({
       version,
-      auth: state,
+      auth: authState,
     });
 
-    sock.ev.on("creds.update", saveCreds);
+    sock.ev.on("creds.update", saveAuth);
 
-    sock.ev.on("connection.update", (update) => {
+    sock.ev.on("connection.update", async (update) => {
       console.log("🔄 Connection update:", update);
 
-      const { connection } = update;
+      const { connection, qr } = update;
+
+      if (qr) {
+        console.log("📱 Scan this QR manually:");
+        console.log(qr);
+      }
 
       if (connection === "open") {
         console.log("✅ CONNECTED");
@@ -40,13 +58,6 @@ async function startBot() {
         console.log("❌ CONNECTION CLOSED");
       }
     });
-
-    if (!state.creds.registered) {
-      console.log("🟡 Requesting pairing code...");
-
-      const code = await sock.requestPairingCode("2348126480871");
-      console.log("🔑 PAIRING CODE:", code);
-    }
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
       console.log("📩 MESSAGE EVENT TRIGGERED");
@@ -68,7 +79,6 @@ async function startBot() {
 }
 
 app.get("/", (req, res) => {
-  console.log("🌐 Health route hit");
   res.send("Running");
 });
 
