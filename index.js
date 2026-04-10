@@ -10,7 +10,12 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-// 🔹 Webhook verification (Meta requirement)
+if (!VERIFY_TOKEN || !WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+  console.error("❌ Missing environment variables");
+  process.exit(1);
+}
+
+// 🔹 Webhook verification
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -38,12 +43,10 @@ app.post("/webhook", async (req, res) => {
 
     console.log("📩 Incoming:", text);
 
-    // 🔥 YOUR LOGIC GOES HERE
     const reply = `⚡ PolymathAI:\nYou said: ${text}`;
 
-    // 🔹 Send reply
-    await fetch(
-      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
       {
         method: "POST",
         headers: {
@@ -53,10 +56,14 @@ app.post("/webhook", async (req, res) => {
         body: JSON.stringify({
           messaging_product: "whatsapp",
           to: from,
+          type: "text",
           text: { body: reply },
         }),
       }
     );
+
+    const data = await response.json();
+    console.log("📤 Meta response:", data);
 
     res.sendStatus(200);
 
