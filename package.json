@@ -1,18 +1,44 @@
 {
   "name": "polymathai-bot",
   "version": "1.0.0",
-  "description": "PolymathAI - WhatsApp Cloud API powered AI micro-service",
+  "description": "PolymathAI - WhatsApp Cloud API powered AI micro-service with voice transcription, summarization, and intelligent automation",
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "NODE_ENV=development node index.js",
+    "test": "echo 'Tests coming soon' && exit 0",
+    "lint": "echo 'Linting setup coming soon'"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "whatsapp",
+    "meta",
+    "cloud-api",
+    "ai",
+    "voice-transcription",
+    "chatbot",
+    "microservice"
+  ],
+  "author": "Josh Fynly",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cr4xv/polymathai-bot.git"
   },
   "dependencies": {
-    "express": "4.18.2",
-    "body-parser": "1.20.2",
-    "node-fetch": "3.3.2"
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "node-fetch": "^3.3.2",
+    "firebase-admin": "^12.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "optionalDependencies": {
+    "openai": "^4.28.4"
   }
 }
